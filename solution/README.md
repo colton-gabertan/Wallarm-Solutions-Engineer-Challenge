@@ -88,7 +88,7 @@ wallarm-wallarm-ingress-controller-wallarm-tarantool   ClusterIP      10.43.112.
 ```
 > **Note**: The EXTERNAL-IP was assigned by my `kube-vip` load balancer and will also be used to map domain names to this address for any web app(s) that will be deployed behind this proxy. My personal DNS setup within the homelab involves just creating the records and having my router handle internal DNS requests. 
 
-This shows that our pods are READY and the service is up. Next, we can also go back to our cloud console and see is the node successfully checked in. We can reach it by going from the `Main Menu` -> `Configuration` -> `Nodes`. With this particular deployment, we have a `Self-hosted` node.
+This shows that our pods are READY and the service is up. Next, we can also go back to our cloud console and see if the node successfully checked in. We can reach it by going from the `Main Menu` -> `Configuration` -> `Nodes`. With this particular deployment, we have a `Self-hosted` node.
 
 ![image](https://github.com/user-attachments/assets/3253efff-a3d1-4ecb-8194-3dd57219d5cd)
 
