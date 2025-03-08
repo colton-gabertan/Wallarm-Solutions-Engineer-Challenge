@@ -43,7 +43,9 @@ controller:
       secretKey: token
       secretName: wallarm-api-token
 ```
-By default, Wallarm will install with `enabled: false`, as well as the `existingSecret` set to `false`, so we want to make sure to enable it either here or update the deployment post-installation. This ensures that our node can check-in to us1.api.wallarm.com as well as pull our API token from the Kubernetes secrets. 
+
+>**Troubleshooting API Connection:**
+>By default, Wallarm will install with `enabled: false`, as well as the `existingSecret` set to `false`, so we want to make sure to enable it either here or update the deployment post-installation. This ensures that our node can check-in to us1.api.wallarm.com as well as pull our API token from the Kubernetes secrets. 
 
 At this point, Helm now knows which Wallarm cloud domain to point to for its API calls as well as retreive the API token from the secrets; however, we need to actually import our API key into kubernetes. We do this by creating the `wallarm` namespace and generating a secret to hold the token. This secret will be accessible to our node within the same namespace. 
 
@@ -121,11 +123,12 @@ spec:
         - juice-shop.home.lab
       secretName: juice-shop-certificate-secret
 ```
-> **Note**: Annotations may also be set via kubectl, post-deployment. More details will be found in the [official documentation](https://docs.wallarm.com/admin-en/installation-kubernetes-en/#step-2-enabling-traffic-analysis-for-your-ingress)
+Annotations may also be set via kubectl, post-deployment. More details will be found in the [official documentation](https://docs.wallarm.com/admin-en/installation-kubernetes-en/#step-2-enabling-traffic-analysis-for-your-ingress)
 
-It is important to note that we specify the annotations. This is what enables traffic analysis for our ingress. `nginx.ingress.kubernetes.io/wallarm-mode` will typically be set to `monitor`, which will simply log detected attacks; however, we can also set it to `block` in order to have Wallarm actually serve the proper response. 
-
-`nginx.ingress.kubernetes.io/wallarm-application` may also be set to provide some delineation between web apps. This helps us stay organized within the cloud console if we have many apps behind this proxy. The `ingressClassName: nginx` is also specified, since I have other ingress providers such as `traefik` configured within my own environment. 
+>**Troubleshooting Ingress Configurations:**
+>It is important to note that we specify the annotations. This is what enables traffic analysis for our ingress. `nginx.ingress.kubernetes.io/wallarm-mode` will typically be set to `monitor`, which will simply log detected attacks; however, we can also set it to `block` in order to have Wallarm actually serve the proper response. 
+>
+>`nginx.ingress.kubernetes.io/wallarm-application` may also be set to provide some delineation between web apps. This helps us stay organized within the cloud console if we have many apps behind this proxy. The `ingressClassName: nginx` is also specified, since I have other ingress providers such as `traefik` configured within my own environment. 
 
 #### 2. Reaching the OWASP Juice Shop & Testing Wallarm Traffic Analysis
 
@@ -133,7 +136,7 @@ This ingress exposed the Juice Shop to my LAN, so I was able to access it from m
 
 ![image](https://github.com/user-attachments/assets/905fc921-8098-4d90-8542-d2ae16623d3f)
 
-To test if traffic is being analyzed, I performed a simple Directory Traversal attack as per the [official documentation](https://docs.wallarm.com/admin-en/installation-kubernetes-en/#step-3-checking-the-wallarm-ingress-controller-operation), trying to access a sensitive file. 
+To test if traffic is being analyzed, I performed a simple Path Traversal attack as per the [official documentation](https://docs.wallarm.com/admin-en/installation-kubernetes-en/#step-3-checking-the-wallarm-ingress-controller-operation), trying to access a sensitive file. 
 
 ![image](https://github.com/user-attachments/assets/75f53855-0a7d-4c0c-8b2a-1dbdf4c401ce)
 
@@ -143,5 +146,140 @@ As we can see, we successfully got the `403 Forbidden` HTTP response, whereas th
 
 Now that we've confirmed that we can both access the OWASP Juice Shop as well as have Wallarm generate an alert, it's time to really put it to the test via `GoTestWaf`!
 
+### Testing with GoTestWaf
 
+The [GoTestWaf](https://github.com/wallarm/gotestwaf) scanner was able to test the Wallarm ingress against a multitude of attacks, fully encompassing the OWASP Top Ten and additional API protocols. I opted to use the docker image from my workstation machine in order to run it against our Juice Shop app.
 
+I pulled and ran the image like so:
+```
+$ sudo docker pull wallarm/gotestwaf
+$ sudo docker run --network="host" --user 0:0 -it -v ${PWD}/reports:/app/reports wallarm/gotestwaf --url=https://juice-shop.home.lab
+```
+> **Troubleshooting GoTestWaf**: The default settings run as a user that may not have permissions to write to the mapped volume defined with the `docker run` command. So, I ran it as `--user 0:0` (root) to have it be able to export my report as a pdf.
+
+After the scan, I decided to check on the cloud console to see the alerts generated:
+
+![image](https://github.com/user-attachments/assets/cf922d23-4088-4e96-a698-11b402612afe)
+> **Note**: I ran the scan a few times, resulting in over 1600 hits!
+
+CLI Report Results:
+```
+True-Positive Tests:
++-----------------------+---------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+|       TEST SET        |         TEST CASE         |     PERCENTAGE, %     |        BLOCKED        |       BYPASSED        |      UNRESOLVED       |         SENT          |        FAILED         |
++-----------------------+---------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+| community             | community-128kb-rce       |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-128kb-sqli      |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-128kb-xss       |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-16kb-rce        |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-16kb-sqli       |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-16kb-xss        |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-32kb-rce        |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-32kb-sqli       |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-32kb-xss        |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-64kb-rce        |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-64kb-sqli       |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-64kb-xss        |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-8kb-rce         |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-8kb-sqli        |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-8kb-xss         |                100.00 |                     1 |                     0 |                     0 |
+   1 |                     0 |
+| community             | community-lfi             |                100.00 |                     8 |                     0 |                     0 |
+   8 |                     0 |
+| community             | community-lfi-multipart   |                100.00 |                     2 |                     0 |                     0 |
+   2 |                     0 |
+| community             | community-rce             |                100.00 |                     4 |                     0 |                     0 |
+   4 |                     0 |
+| community             | community-rce-rawrequests |                100.00 |                     3 |                     0 |                     0 |
+   3 |                     0 |
+| community             | community-sqli            |                 66.67 |                     8 |                     4 |                     0 |
+  12 |                     0 |
+| community             | community-user-agent      |                100.00 |                     9 |                     0 |                     0 |
+   9 |                     0 |
+| community             | community-xss             |                100.00 |                   104 |                     0 |                     0 |
+ 104 |                     0 |
+| community             | community-xxe             |                100.00 |                     2 |                     0 |                     0 |
+   2 |                     0 |
+| owasp                 | crlf                      |                100.00 |                     7 |                     0 |                     0 |
+   7 |                     0 |
+| owasp                 | ldap-injection            |                 95.83 |                    23 |                     1 |                     0 |
+  24 |                     0 |
+| owasp                 | mail-injection            |                100.00 |                    24 |                     0 |                     0 |
+  24 |                     0 |
+| owasp                 | nosql-injection           |                100.00 |                    50 |                     0 |                     0 |
+  50 |                     0 |
+| owasp                 | path-traversal            |                100.00 |                    20 |                     0 |                     0 |
+  20 |                     0 |
+| owasp                 | rce                       |                 66.67 |                     4 |                     2 |                     0 |
+   6 |                     0 |
+| owasp                 | rce-urlparam              |                100.00 |                     9 |                     0 |                     0 |
+   9 |                     0 |
+| owasp                 | rce-urlpath               |                 66.67 |                     2 |                     1 |                     0 |
+   3 |                     0 |
+| owasp                 | shell-injection           |                100.00 |                    32 |                     0 |                     0 |
+  32 |                     0 |
+| owasp                 | sql-injection             |                100.00 |                    48 |                     0 |                     0 |
+  48 |                     0 |
+| owasp                 | ss-include                |                100.00 |                    24 |                     0 |                     0 |
+  24 |                     0 |
+| owasp                 | sst-injection             |                100.00 |                    24 |                     0 |                     0 |
+  24 |                     0 |
+| owasp                 | xml-injection             |                 71.43 |                     5 |                     2 |                     0 |
+   7 |                     0 |
+| owasp                 | xss-scripting             |                 99.10 |                   221 |                     2 |                     1 |
+ 224 |                     0 |
+| owasp-api             | graphql                   |                  0.00 |                     0 |                     0 |                     0 |
+   0 |                     0 |
+| owasp-api             | graphql-post              |                  0.00 |                     0 |                     0 |                     0 |
+   0 |                     0 |
+| owasp-api             | grpc                      |                  0.00 |                     0 |                     0 |                     0 |
+   0 |                     0 |
+| owasp-api             | non-crud                  |                100.00 |                     2 |                     0 |                     0 |
+   2 |                     0 |
+| owasp-api             | rest                      |                100.00 |                     7 |                     0 |                     0 |
+   7 |                     0 |
+| owasp-api             | soap                      |                100.00 |                     5 |                     0 |                     0 |
+   5 |                     0 |
++-----------------------+---------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+|         DATE:         |       PROJECT NAME:       | TRUE-POSITIVE SCORE:  |  BLOCKED (RESOLVED):  | BYPASSED (RESOLVED):  |  UNRESOLVED (SENT):   |      TOTAL SENT:      |    FAILED (TOTAL):    |
+|      2025-03-08       |          GENERIC          |        98.22%         |   662/674 (98.22%)    |    12/674 (1.78%)     |     1/675 (0.15%)     |          675          |     0/675 (0.00%)     |
++-----------------------+---------------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+
+True-Negative Tests:
++-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+|       TEST SET        |       TEST CASE       |     PERCENTAGE, %     |        BLOCKED        |       BYPASSED        |      UNRESOLVED       |         SENT
+ |        FAILED         |
++-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+| false-pos             | texts                 |                 99.29 |                     1 |                   140 |                     0 |                   141 |                     0 |
++-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+|         DATE:         |     PROJECT NAME:     | TRUE-NEGATIVE SCORE:  |  BLOCKED (RESOLVED):  | BYPASSED (RESOLVED):  |  UNRESOLVED (SENT):   |      TOTAL SENT:      |    FAILED (TOTAL):    |
+|      2025-03-08       |        GENERIC        |        99.29%         |     1/141 (0.71%)     |   140/141 (99.29%)    |     0/141 (0.00%)     |          141
+ |     0/141 (0.00%)     |
++-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+-----------------------+
+
+Summary:
++-----------------------------+-----------------------------+-----------------------------+-----------------------------+
+|            TYPE             | TRUE-POSITIVE TESTS BLOCKED | TRUE-NEGATIVE TESTS PASSED  |           AVERAGE           |
++-----------------------------+-----------------------------+-----------------------------+-----------------------------+
+| API Security                | 100.00%                     | n/a                         | 100.00%                     |
+| Application Security        | 98.18%                      | 99.29%                      | 98.74%                      |
++-----------------------------+-----------------------------+-----------------------------+-----------------------------+
+|                                                                        SCORE            |           99.37%            |
++-----------------------------+-----------------------------+-----------------------------+-----------------------------+
+```
+
+As you can see, Wallarm performed exceptionally well, with an average of 99.37%. It was also able to generate a report, highlighted [here]()
