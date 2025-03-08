@@ -282,4 +282,4 @@ Summary:
 +-----------------------------+-----------------------------+-----------------------------+-----------------------------+
 ```
 
-As you can see, Wallarm performed exceptionally well, with an average of 99.37%. It was also able to generate a report, highlighted [here]()
+As you can see, Wallarm performed exceptionally well, with an average of 99.37%. It was also able to generate a report, highlighted [here](solution/waf-evaluation-report-2025-March-08-02-36-25.pdf)
