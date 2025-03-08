@@ -29,7 +29,7 @@ helm repo update wallarm
 ```
 
 I've also created a custom [values.yml](/helm/values.yml) to pass to helm for our deployment. Let's break it down here:
-```
+```yaml
 controller:
   wallarm:
     enabled: true
@@ -91,7 +91,55 @@ I chose the OWASP Juice Shop as my backend to receive http(s) traffic as it is a
 
 #### 1. Creating the deployment
 
+The full manifest I created can be found in [/app/juiceshop.yml](/app/juiceshop.yml). Essentially it pulls the OWASP Juice Shop image, deploys it, creates a new service object for internal cluster routing, and the ingress, which uses the Wallarm filtering node that we just deployed. For now, let's focus on configuring the ingress:
 
+```yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: juice-shop-ingress
+  namespace: juice-shop
+  annotations:
+    nginx.ingress.kubernetes.io/wallarm-mode: "block"
+    nginx.ingress.kubernetes.io/wallarm-application: "100"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: juice-shop.home.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: juice-shop
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - juice-shop.home.lab
+      secretName: juice-shop-certificate-secret
+```
+> **Note**: Annotations may also be set via kubectl, post-deployment. More details will be found in the [official documentation](https://docs.wallarm.com/admin-en/installation-kubernetes-en/#step-2-enabling-traffic-analysis-for-your-ingress)
+
+It is important to note that we specify the annotations. This is what enables traffic analysis for our ingress. `nginx.ingress.kubernetes.io/wallarm-mode` will typically be set to `monitor`, which will simply log detected attacks; however, we can also set it to `block` in order to have Wallarm actually serve the proper response. 
+
+`nginx.ingress.kubernetes.io/wallarm-application` may also be set to provide some delineation between web apps. This helps us stay organized within the cloud console if we have many apps behind this proxy. The `ingressClassName: nginx` is also specified, since I have other ingress providers such as `traefik` configured within my own environment. 
+
+#### 2. Reaching the OWASP Juice Shop & Testing Wallarm Traffic Analysis
+
+This ingress exposed the Juice Shop to my LAN, so I was able to access it from my browser.
+
+![image](https://github.com/user-attachments/assets/905fc921-8098-4d90-8542-d2ae16623d3f)
+
+To test if traffic is being analyzed, I performed a simple Directory Traversal attack, trying to access a sensitive file. 
+
+![image](https://github.com/user-attachments/assets/75f53855-0a7d-4c0c-8b2a-1dbdf4c401ce)
+
+As we can see, we successfully got the `403 Forbidden` HTTP response, whereas the normal Juice Shop image would reply with a `200 OK`. This alert should also show up within the cloud console via `Events` -> `Attacks`
+
+![image](https://github.com/user-attachments/assets/aabac366-7601-4c30-bd15-0e7ed320ef9e)
 
 
 
