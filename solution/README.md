@@ -3,6 +3,13 @@
 ## Overview
 Welcome! My solution to the technical evaluation involved deploying a Wallarm filtering node to my self-hosted K3S cluster. It is configured as an NGINX ingress to both expose an OWASP Juice Shop pod as well as monitor and protect it. 
 
+Deployed K8S Objects:
+![image](https://github.com/user-attachments/assets/234effe5-7ef7-4df9-a273-dc6a63d6ce73)
+
+Traffic Flow Diagram:
+![image](https://github.com/user-attachments/assets/3d21beda-9d1a-4df5-9e92-8d0b4205bb43)
+> juice-shop-ingress leverages the wallarm filtering node to expose & secure the pod
+
 ## Task Breakdown
 - [X] Deploy a Wallarm filtering node using the NGINX Ingress Controller
 - [X] Configure the vulnerable OWASP Juice Shop image as a backend origin to receive test traffic
