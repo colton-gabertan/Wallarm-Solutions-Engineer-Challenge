@@ -1,0 +1,12 @@
+controller:
+  wallarm:
+    enabled: true
+    apiHost: us1.api.wallarm.com
+    apiPort: 443
+    apiSSL: true
+    token: ""
+    nodeGroup: defaultIngressGroup
+    existingSecret:
+      enabled: true
+      secretKey: token
+      secretName: wallarm-api-token

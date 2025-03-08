@@ -1,0 +1,76 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: juice-shop
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: juice-shop
+  namespace: juice-shop
+spec:
+  template:
+    metadata:
+      labels:
+        app: juice-shop
+    spec:
+      containers:
+        - name: juice-shop
+          image: bkimminich/juice-shop
+  selector:
+    matchLabels:
+      app: juice-shop
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: juice-shop
+  namespace: juice-shop
+spec:
+  type: ClusterIP
+  selector:
+    app: juice-shop
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: juice-shop-certificate
+  namespace: juice-shop
+spec:
+  secretName: juice-shop-certificate-secret
+  issuerRef:
+    name: selfsigned-cluster-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - juice-shop.home.lab
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: juice-shop-ingress
+  namespace: juice-shop
+  annotations:
+    nginx.ingress.kubernetes.io/wallarm-mode: "block"
+    nginx.ingress.kubernetes.io/wallarm-application: "100"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: juice-shop.home.lab
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: juice-shop
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - juice-shop.home.lab
+      secretName: juice-shop-certificate-secret
