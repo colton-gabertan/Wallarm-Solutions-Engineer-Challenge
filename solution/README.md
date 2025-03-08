@@ -133,13 +133,15 @@ This ingress exposed the Juice Shop to my LAN, so I was able to access it from m
 
 ![image](https://github.com/user-attachments/assets/905fc921-8098-4d90-8542-d2ae16623d3f)
 
-To test if traffic is being analyzed, I performed a simple Directory Traversal attack, trying to access a sensitive file. 
+To test if traffic is being analyzed, I performed a simple Directory Traversal attack as per the [official documentation](https://docs.wallarm.com/admin-en/installation-kubernetes-en/#step-3-checking-the-wallarm-ingress-controller-operation), trying to access a sensitive file. 
 
 ![image](https://github.com/user-attachments/assets/75f53855-0a7d-4c0c-8b2a-1dbdf4c401ce)
 
 As we can see, we successfully got the `403 Forbidden` HTTP response, whereas the normal Juice Shop image would reply with a `200 OK`. This alert should also show up within the cloud console via `Events` -> `Attacks`
 
 ![image](https://github.com/user-attachments/assets/aabac366-7601-4c30-bd15-0e7ed320ef9e)
+
+Now that we've confirmed that we can both access the OWASP Juice Shop as well as have Wallarm generate an alert, it's time to really put it to the test via `GoTestWaf`!
 
 
 
